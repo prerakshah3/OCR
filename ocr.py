@@ -7,13 +7,22 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import pickle
+import json
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def authenticate():
     creds = None
-    token_path = 'token.pickle'
+    token_path = os.getenv('TOKEN_PATH', 'token.pickle')
+    credentials_path = os.getenv('GOOGLE_CREDENTIALS_PATH')
+    
+    if not credentials_path:
+        raise ValueError("GOOGLE_CREDENTIALS_PATH environment variable is not set")
     
     # Load existing credentials if available
     if os.path.exists(token_path):
@@ -36,10 +45,19 @@ def authenticate():
         # If still no valid credentials, get new ones
         if not creds:
             print("Please authenticate with your Google account.")
-            flow = InstalledAppFlow.from_client_secrets_file(
-                r'D:\study\ocr\json\client_secret_575200214071-o4pt69jpajada1v0aj9te51vt7oj53pd.apps.googleusercontent.com.json', 
-                SCOPES
-            )
+            
+            # Check if credentials_path is a file path or JSON string
+            if os.path.exists(credentials_path):
+                # It's a file path
+                flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
+            else:
+                # It's a JSON string from environment variable
+                try:
+                    client_config = json.loads(credentials_path)
+                    flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+                except json.JSONDecodeError:
+                    raise ValueError("Invalid JSON in GOOGLE_CREDENTIALS_PATH")
+            
             creds = flow.run_local_server(port=0)
             
             # Save the credentials for future use
